@@ -1,0 +1,28 @@
+name: Test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        gemfile: [Gemfile, gemfiles/active_record_72.gemfile, gemfiles/active_record_80.gemfile]
+    runs-on: ${{ matrix.os }}
+    env:
+      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      CARGO: ${{ github.workspace }}/script/cached-cargo
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: jdx/mr-boxington-action@v1
+        with:
+          backend: local
+      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - run: script/test
+      - run: bundle exec rake package

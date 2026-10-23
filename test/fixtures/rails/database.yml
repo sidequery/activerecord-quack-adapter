@@ -1,0 +1,5 @@
+test:
+  adapter: quack
+  uri: <%= ENV.fetch("QUACK_TEST_URI") %>
+  auth_token: <%= ENV.fetch("QUACK_TEST_TOKEN", "quack-ruby-test") %>
+  pool: 3
