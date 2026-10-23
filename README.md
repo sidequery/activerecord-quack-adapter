@@ -6,17 +6,18 @@ HTTP(S) rather than ADBC or an embedded DuckDB database.
 
 ## Install
 
-These are source gems; no RubyGems release or precompiled binaries have been
-published. Add both repositories to your Gemfile:
+Add to your Gemfile:
 
 ```ruby
-gem "quack", github: "sidequery/quack-ruby", branch: "main"
-gem "activerecord-quack-adapter", github: "sidequery/activerecord-quack-adapter", branch: "main"
+gem "activerecord-quack-adapter", "~> 0.1.0"
 ```
 
-Ruby >= 3.2 and the Quack client's native build prerequisites are required.
-Enable Boxington’s Cargo shim with `mbx setup` to cache installation builds. A Quack server and
-database must already exist. Supported servers are DuckDB 1.5.5 and 2.0.0.
+The adapter installs `quack-ruby` automatically. Its precompiled gems cover Ruby
+3.2–3.4 on macOS and Linux glibc, on both Intel/x86-64 and ARM64. The Quack
+extension needs no Cargo or compiler on those combinations. Source installs
+on other platforms require the client's native build prerequisites.
+A Quack server and database must already exist. Supported servers are DuckDB
+1.5.5 and 2.0.0. Ruby entry points and the `adapter: quack` setting are unchanged.
 
 ## Rails configuration and usage
 
@@ -178,6 +179,10 @@ boots from database.yml and serves database-backed POST/GET requests.
 
 CI is configured for all three Active Record series on Linux/macOS. The
 client's separate suite covers protocol, TLS, lifecycle and native v1 append.
+The `Release` workflow builds the adapter gem and tests installed packages
+against all three Rails series with Cargo and rustc blocked. Dispatch it with
+`publish: true` to publish through RubyGems Trusted Publishing after those
+checks pass. Publish the matching client version first.
 
 ## License
 

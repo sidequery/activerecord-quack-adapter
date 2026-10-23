@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/sidequery/quack-ruby.git
-  revision: 51aacce711a2517ef8252f40695fb5d242a0bdf5
+  revision: 5de4eb3d68e3bce46a8d9ed6fd9cba7fe2c6711b
   branch: main
   specs:
-    quack (0.1.0)
+    quack-ruby (0.1.0)
       bigdecimal (>= 3.1)
       json (>= 2.6)
       rb_sys (~> 0.9)
@@ -13,7 +13,7 @@ PATH
   specs:
     activerecord-quack-adapter (0.1.0)
       activerecord (>= 7.2, < 8.2)
-      quack (~> 0.1.0)
+      quack-ruby (~> 0.1.0)
 
 GEM
   remote: https://rubygems.org/
@@ -155,7 +155,7 @@ DEPENDENCIES
   activerecord (~> 8.0.0)
   activerecord-quack-adapter!
   minitest (~> 5.25)
-  quack!
+  quack-ruby!
   railties (>= 7.2, < 8.2)
   rake (~> 13.0)
 
