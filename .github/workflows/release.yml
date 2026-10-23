@@ -1,76 +1,132 @@
 name: Release
-on:
+'on':
   workflow_dispatch:
     inputs:
-      publish:
-        description: Publish the tested adapter gem to RubyGems
-        type: boolean
-        default: false
+      bump:
+        description: Version bump
+        type: choice
+        default: patch
+        options:
+        - patch
+        - minor
+        - major
+      release_tag:
+        description: Existing version tag to publish without a bump
+        type: string
+        required: false
 permissions:
   contents: read
 jobs:
+  version:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: "${{ steps.version.outputs.sha }}"
+      tag: "${{ steps.version.outputs.tag }}"
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: "${{ inputs.release_tag || github.ref }}"
+        fetch-depth: 0
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+    - id: version
+      env:
+        BUMP: "${{ inputs.bump }}"
+        RELEASE_TAG: "${{ inputs.release_tag }}"
+      run: ruby script/prepare-release
   build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-      - run: mkdir pkg && gem build activerecord-quack-adapter.gemspec --output pkg/activerecord-quack-adapter-0.1.0.gem
-      - uses: actions/upload-artifact@v6
-        with:
-          name: adapter-gem
-          path: pkg/*.gem
-          if-no-files-found: error
+    - uses: actions/checkout@v7
+      with:
+        ref: "${{ needs.version.outputs.sha }}"
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+    - run: mkdir pkg && gem build activerecord-quack-adapter.gemspec --output "pkg/activerecord-quack-adapter-$(ruby
+        -e 'print Gem::Specification.load("activerecord-quack-adapter.gemspec").version').gem"
+    - uses: actions/upload-artifact@v6
+      with:
+        name: adapter-gem
+        path: pkg/*.gem
+        if-no-files-found: error
+    needs:
+    - version
   test:
-    needs: build
+    needs:
+    - version
+    - build
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
-        rails: ['7.2.4', '8.0.5.1', '8.1.4']
-    runs-on: ${{ matrix.os }}
+        os:
+        - ubuntu-24.04
+        - macos-15
+        rails:
+        - 7.2.4
+        - 8.0.5.1
+        - 8.1.4
+    runs-on: "${{ matrix.os }}"
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-      - uses: astral-sh/setup-uv@v10.3.2
-      - uses: actions/download-artifact@v7
-        with:
-          name: adapter-gem
-          path: pkg
-      - name: Block Rust tools
-        run: |
-          mkdir "$RUNNER_TEMP/no-rust"
-          for tool in cargo rustc; do
-            printf '#!/bin/sh\necho "Unexpected Rust build" >&2\nexit 1\n' > "$RUNNER_TEMP/no-rust/$tool"
-            chmod +x "$RUNNER_TEMP/no-rust/$tool"
-          done
-          echo "$RUNNER_TEMP/no-rust" >> "$GITHUB_PATH"
-      - run: gem install railties activerecord -v "$RAILS_VERSION" --no-document && gem install minitest -v '~> 5.25' --no-document
-        env:
-          RAILS_VERSION: ${{ matrix.rails }}
-      - run: gem install pkg/*.gem --conservative --no-document
-      - run: script/test
-        env:
-          QUACK_TEST_INSTALLED: '1'
-          RAILS_VERSION: ${{ matrix.rails }}
+    - uses: actions/checkout@v7
+      with:
+        ref: "${{ needs.version.outputs.sha }}"
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+    - uses: astral-sh/setup-uv@v10.3.2
+    - uses: actions/download-artifact@v7
+      with:
+        name: adapter-gem
+        path: pkg
+    - name: Block Rust tools
+      run: |
+        mkdir "$RUNNER_TEMP/no-rust"
+        for tool in cargo rustc; do
+          printf '#!/bin/sh\necho "Unexpected Rust build" >&2\nexit 1\n' > "$RUNNER_TEMP/no-rust/$tool"
+          chmod +x "$RUNNER_TEMP/no-rust/$tool"
+        done
+        echo "$RUNNER_TEMP/no-rust" >> "$GITHUB_PATH"
+    - run: gem install railties activerecord -v "$RAILS_VERSION" --no-document &&
+        gem install minitest -v '~> 5.25' --no-document
+      env:
+        RAILS_VERSION: "${{ matrix.rails }}"
+    - run: gem install pkg/*.gem --conservative --no-document
+    - run: script/test
+      env:
+        QUACK_TEST_INSTALLED: '1'
+        RAILS_VERSION: "${{ matrix.rails }}"
   publish:
-    if: inputs.publish
-    needs: [build, test]
+    needs:
+    - version
+    - build
+    - test
     runs-on: ubuntu-24.04
     environment: release
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-      - uses: actions/download-artifact@v7
-        with:
-          name: adapter-gem
-          path: pkg
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
-      - run: gem push pkg/*.gem
+    - uses: actions/checkout@v7
+      with:
+        ref: "${{ needs.version.outputs.sha }}"
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+    - uses: actions/download-artifact@v7
+      with:
+        name: adapter-gem
+        path: pkg
+    - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a
+    - run: gem push pkg/*.gem
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: "${{ github.token }}"
+        RELEASE_TAG: "${{ needs.version.outputs.tag }}"
+      run: gh release create "$RELEASE_TAG" pkg/*.gem --verify-tag --generate-notes
+concurrency:
+  group: release
+  cancel-in-progress: false

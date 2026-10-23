@@ -180,9 +180,12 @@ boots from database.yml and serves database-backed POST/GET requests.
 CI is configured for all three Active Record series on Linux/macOS. The
 client's separate suite covers protocol, TLS, lifecycle and native v1 append.
 The `Release` workflow builds the adapter gem and tests installed packages
-against all three Rails series with Cargo and rustc blocked. Dispatch it with
-`publish: true` to publish through RubyGems Trusted Publishing after those
-checks pass. Publish the matching client version first.
+against all three Rails series with Cargo and rustc blocked. Dispatch it from
+main with a patch, minor or major bump to update versions and locks, commit/tag,
+test, publish through RubyGems Trusted Publishing, and create a GitHub Release.
+An optional `release_tag` publishes an existing matching tag without a bump.
+Publish the matching client version first; update the client dependency when
+moving to a new client minor series.
 
 ## License
 
